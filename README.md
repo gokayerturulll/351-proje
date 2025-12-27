@@ -2,6 +2,20 @@
 
 Lex ve Yacc kullanarak Dead Code Elimination algoritması implementasyonu.
 
+## Proje Yapısı
+
+```
+├── src/
+│   ├── lexer.l      # Lexer
+│   └── parser.y     # Parser + DCE algoritması
+├── tests/
+│   ├── test1.il     # Test 1
+│   └── test2.il     # Test 2
+├── Makefile
+├── report.txt
+└── README.md
+```
+
 ## Derleme
 
 ```bash
@@ -11,7 +25,7 @@ make
 ## Kullanım
 
 ```bash
-./dce < input.il
+./dce < tests/test1.il
 ```
 
 ## Test
@@ -19,10 +33,3 @@ make
 ```bash
 make test
 ```
-
-## Dosyalar
-
-- `lexer.l` - Lexer (token tanımları)
-- `parser.y` - Parser ve DCE algoritması
-- `test1.il`, `test2.il` - Test dosyaları
-- `report.txt` - Proje raporu
