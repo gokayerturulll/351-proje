@@ -1,0 +1,147 @@
+# CSE351 Term Project Report
+## Dead Code Elimination Using Lex and Yacc
+
+### 1. Introduction
+
+This project implements a Dead Code Elimination (DCE) algorithm for an intermediate language (IL) using Lex (lexical analyzer) and Yacc (parser generator). The DCE algorithm identifies and removes assignment statements whose results are never used, optimizing the code.
+
+### 2. Design Overview
+
+#### 2.1 Intermediate Language Syntax
+
+The IL supports:
+- Assignment statements: `variable = expression;`
+- Expressions: single operand or `operand operator operand`
+- Operators: `+`, `-`, `*`, `/`, `^`
+- Operands: variables (identifiers) or signed integers
+- Live variable declaration: `{ var1, var2, ... }`
+
+Example:
+```
+a = b + c;
+x = 5;
+{ a }
+```
+
+#### 2.2 Algorithm
+
+The DCE algorithm follows three steps:
+
+1. **Parse & Store**: All statements are parsed and stored in memory
+2. **Backward Analysis**: Process statements in reverse order, tracking live variables
+3. **Output Generation**: Print only live statements in correct order
+
+**Key Insight**: A statement is dead if its destination variable is not in the live set. When a live statement is found, its source operands become live, and its destination becomes dead (before this point).
+
+### 3. Implementation
+
+#### 3.1 Lexer (lexer.l)
+
+Defines tokens:
+- `ID`: Variable names (regex: `[a-zA-Z][a-zA-Z0-9]*`)
+- `NUMBER`: Signed integers (regex: `-?[0-9]+`)
+- Operators: `PLUS`, `MINUS`, `MULT`, `DIV`, `POWER`
+- Delimiters: `ASSIGN`, `SEMICOLON`, `LBRACE`, `RBRACE`, `COMMA`
+
+#### 3.2 Parser (parser.y)
+
+**Data Structures**:
+```c
+typedef struct {
+    char dest[64];      // destination variable
+    char src1[64];      // first source operand
+    char op;            // operator
+    char src2[64];      // second source operand
+    int is_src1_num;    // flag for numeric operand
+    int is_src2_num;    // flag for numeric operand
+} Statement;
+
+char live_vars[100][64]; // current live variable set
+```
+
+**Grammar Rules**:
+```
+program    → statements liveset
+statements → statements statement | ε
+statement  → ID ASSIGN expression SEMICOLON
+expression → operand | operand OP operand
+operand    → ID | NUMBER
+liveset    → { varlist }
+varlist    → ID | varlist, ID
+```
+
+**DCE Functions**:
+- `is_live(var)`: Check if variable is in live set
+- `add_to_live(var)`: Add variable to live set
+- `remove_from_live(var)`: Remove variable from live set
+- `perform_dce()`: Main algorithm - processes statements backward
+
+### 4. Compilation & Usage
+
+**Build**:
+```bash
+make
+```
+
+**Run**:
+```bash
+./dce < input.il
+```
+
+**Test**:
+```bash
+make test
+```
+
+### 5. Test Results
+
+#### Test 1 (from project description):
+**Input**:
+```
+a=2+2; b=2^9; c=d^3; e=5; f=3*4; g=6/2; h=m; p=0; j=j+p; r=e*p; s=a;
+{ r, s }
+```
+
+**Output**:
+```
+a=2+2;
+e=5;
+p=0;
+r=e*p;
+s=a;
+```
+
+✅ Matches expected output exactly.
+
+#### Test 2:
+**Input**:
+```
+b=z+y; a=b; x=2*b;
+{ x }
+```
+
+**Output**:
+```
+b=z+y;
+x=2*b;
+```
+
+✅ Matches expected output exactly.
+
+### 6. Files
+
+| File | Description |
+|------|-------------|
+| `lexer.l` | Lex source - tokenizer |
+| `parser.y` | Yacc source - parser & DCE algorithm |
+| `Makefile` | Build script |
+| `test1.il` | Test input 1 |
+| `test2.il` | Test input 2 |
+
+### 7. Conclusion
+
+The implementation successfully performs dead code elimination according to the project specifications. The algorithm correctly:
+- Parses IL syntax
+- Tracks live variables through backward analysis
+- Eliminates dead code
+- Outputs optimized code in correct order

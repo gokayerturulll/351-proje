@@ -1,0 +1,8 @@
+# Generated files
+lex.yy.c
+y.tab.c
+y.tab.h
+dce
+
+# OS files
+.DS_Store
