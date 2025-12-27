@@ -4,8 +4,8 @@
 #include <string.h>
 
 /* Maximum statements and variables */
-#define MAX_STATEMENTS 100
-#define MAX_VARS 100
+#define MAX_STATEMENTS 10000
+#define MAX_VARS 10000
 #define MAX_VAR_LEN 64
 
 /* Statement structure */
