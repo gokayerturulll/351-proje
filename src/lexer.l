@@ -6,8 +6,8 @@
 
 %%
 
-[ \t]+          ; /* ignore whitespace */
-\n              ; /* ignore newlines */
+[ \t]+          ;
+\n              ;
 
 "+"             { return PLUS; }
 "-"             { return MINUS; }
@@ -24,7 +24,7 @@
 
 [a-zA-Z][a-zA-Z0-9]*  { yylval.str = strdup(yytext); return ID; }
 
-.               { fprintf(stderr, "Unknown character: %s\n", yytext); }
+.               { fprintf(stderr, "Hata: Bilinmeyen karakter: %s\n", yytext); }
 
 %%
 
