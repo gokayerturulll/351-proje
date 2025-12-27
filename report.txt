@@ -81,14 +81,22 @@ DCE Functions:
 4. COMPILATION & USAGE
 ----------------------
 
-Build:
+Build and Run (using shell script):
+    ./run.sh
+
+This script will:
+- Clean previous build files
+- Compile the project using Lex and Yacc
+- Run both test cases automatically
+
+Manual Build:
     make
 
-Run:
+Manual Run:
     ./dce < input.il
 
-Test:
-    make test
+Clean:
+    make clean
 
 
 5. TEST RESULTS
