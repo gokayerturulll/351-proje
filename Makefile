@@ -29,5 +29,11 @@ test: $(TARGET)
 	@echo ""
 	@echo "=== Test 2 ==="
 	./$(TARGET) < $(TEST_DIR)/test2.il
+	@echo ""
+	@echo "=== Test 3 ==="
+	./$(TARGET) < $(TEST_DIR)/test3.il
+	@echo ""
+	@echo "=== Test 4 ==="
+	./$(TARGET) < $(TEST_DIR)/test4.il
 
 .PHONY: all clean test
