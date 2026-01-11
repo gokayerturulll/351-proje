@@ -3,266 +3,161 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define MAX_STATEMENTS 10000
-#define MAX_VARS 10000
-#define MAX_VAR_LEN 64
+#define MAX 100
 
-typedef struct {
-    char dest[MAX_VAR_LEN];
-    char src1[MAX_VAR_LEN];
+// statement structure
+struct stmt {
+    char dest[32];
+    char src1[32];
+    char src2[32];
     char op;
-    char src2[MAX_VAR_LEN];
-    char original[256];
-    int is_src1_num;
-    int is_src2_num;
-} Statement;
+    char text[128];
+};
 
-Statement statements[MAX_STATEMENTS];
+struct stmt stmts[MAX];
 int stmt_count = 0;
 
-char live_vars[MAX_VARS][MAX_VAR_LEN];
+char live[MAX][32];
 int live_count = 0;
 
-char current_dest[MAX_VAR_LEN];
-char current_src1[MAX_VAR_LEN];
-char current_op;
-char current_src2[MAX_VAR_LEN];
-int current_is_src1_num;
-int current_is_src2_num;
+char tmp_dest[32], tmp_src1[32], tmp_src2[32];
+char tmp_op;
 
-void add_statement();
-void add_live_var(char *var);
-int is_live(char *var);
-void add_to_live(char *var);
-void remove_from_live(char *var);
-void perform_dce();
-void yyerror(const char *s);
+void add_stmt();
+void add_live(char *v);
+int is_live(char *v);
+void remove_live(char *v);
+void do_dce();
 int yylex();
-
+void yyerror(const char *s);
 %}
 
 %union {
     int num;
     char *str;
+    char op;
 }
 
 %token <num> NUMBER
 %token <str> ID
 %token PLUS MINUS MULT DIV POWER
-%token ASSIGN SEMICOLON
-%token LBRACE RBRACE COMMA
+%token ASSIGN SEMICOLON LBRACE RBRACE COMMA
 
 %type <str> operand
+%type <op> operator
 
 %%
 
-program:
-    statements liveset  { perform_dce(); }
-    ;
+program: stmtlist liveset { do_dce(); };
 
-statements:
-    | statements statement
-    ;
+stmtlist: | stmtlist stmt;
 
-statement:
-    ID ASSIGN expression SEMICOLON {
-        strcpy(current_dest, $1);
-        add_statement();
-        free($1);
-    }
-    ;
+stmt: ID ASSIGN expr SEMICOLON { strcpy(tmp_dest, $1); add_stmt(); free($1); };
 
-expression:
-    operand {
-        strcpy(current_src1, $1);
-        current_op = 0;
-        current_src2[0] = '\0';
-        if ($1[0] >= '0' && $1[0] <= '9' || ($1[0] == '-' && $1[1] >= '0'))
-            current_is_src1_num = 1;
-        else
-            current_is_src1_num = 0;
-        current_is_src2_num = 0;
-        free($1);
+expr:
+    operand { 
+        strcpy(tmp_src1, $1); 
+        tmp_op = 0; 
+        tmp_src2[0] = '\0'; 
+        free($1); 
     }
-    | operand PLUS operand {
-        strcpy(current_src1, $1);
-        current_op = '+';
-        strcpy(current_src2, $3);
-        if ($1[0] >= '0' && $1[0] <= '9' || ($1[0] == '-' && $1[1] >= '0'))
-            current_is_src1_num = 1;
-        else
-            current_is_src1_num = 0;
-        if ($3[0] >= '0' && $3[0] <= '9' || ($3[0] == '-' && $3[1] >= '0'))
-            current_is_src2_num = 1;
-        else
-            current_is_src2_num = 0;
-        free($1);
-        free($3);
-    }
-    | operand MINUS operand {
-        strcpy(current_src1, $1);
-        current_op = '-';
-        strcpy(current_src2, $3);
-        if ($1[0] >= '0' && $1[0] <= '9' || ($1[0] == '-' && $1[1] >= '0'))
-            current_is_src1_num = 1;
-        else
-            current_is_src1_num = 0;
-        if ($3[0] >= '0' && $3[0] <= '9' || ($3[0] == '-' && $3[1] >= '0'))
-            current_is_src2_num = 1;
-        else
-            current_is_src2_num = 0;
-        free($1);
-        free($3);
-    }
-    | operand MULT operand {
-        strcpy(current_src1, $1);
-        current_op = '*';
-        strcpy(current_src2, $3);
-        if ($1[0] >= '0' && $1[0] <= '9' || ($1[0] == '-' && $1[1] >= '0'))
-            current_is_src1_num = 1;
-        else
-            current_is_src1_num = 0;
-        if ($3[0] >= '0' && $3[0] <= '9' || ($3[0] == '-' && $3[1] >= '0'))
-            current_is_src2_num = 1;
-        else
-            current_is_src2_num = 0;
-        free($1);
-        free($3);
-    }
-    | operand DIV operand {
-        strcpy(current_src1, $1);
-        current_op = '/';
-        strcpy(current_src2, $3);
-        if ($1[0] >= '0' && $1[0] <= '9' || ($1[0] == '-' && $1[1] >= '0'))
-            current_is_src1_num = 1;
-        else
-            current_is_src1_num = 0;
-        if ($3[0] >= '0' && $3[0] <= '9' || ($3[0] == '-' && $3[1] >= '0'))
-            current_is_src2_num = 1;
-        else
-            current_is_src2_num = 0;
-        free($1);
-        free($3);
-    }
-    | operand POWER operand {
-        strcpy(current_src1, $1);
-        current_op = '^';
-        strcpy(current_src2, $3);
-        if ($1[0] >= '0' && $1[0] <= '9' || ($1[0] == '-' && $1[1] >= '0'))
-            current_is_src1_num = 1;
-        else
-            current_is_src1_num = 0;
-        if ($3[0] >= '0' && $3[0] <= '9' || ($3[0] == '-' && $3[1] >= '0'))
-            current_is_src2_num = 1;
-        else
-            current_is_src2_num = 0;
-        free($1);
-        free($3);
+    | operand operator operand { 
+        strcpy(tmp_src1, $1); 
+        tmp_op = $2; 
+        strcpy(tmp_src2, $3); 
+        free($1); 
+        free($3); 
     }
     ;
 
 operand:
-    ID      { $$ = $1; }
+    ID { $$ = $1; }
     | NUMBER { 
-        char buf[32];
-        sprintf(buf, "%d", $1);
-        $$ = strdup(buf);
+        $$ = malloc(16); 
+        sprintf($$, "%d", $1); 
     }
     ;
 
-liveset:
-    LBRACE varlist RBRACE
+operator:
+    PLUS  { $$ = '+'; }
+    | MINUS { $$ = '-'; }
+    | MULT  { $$ = '*'; }
+    | DIV   { $$ = '/'; }
+    | POWER { $$ = '^'; }
     ;
 
-varlist:
-    ID { add_live_var($1); free($1); }
-    | varlist COMMA ID { add_live_var($3); free($3); }
-    ;
+liveset: LBRACE varlist RBRACE;
+
+varlist: ID { add_live($1); free($1); }
+       | varlist COMMA ID { add_live($3); free($3); };
 
 %%
 
-void add_statement() {
-    Statement *s = &statements[stmt_count];
-    strcpy(s->dest, current_dest);
-    strcpy(s->src1, current_src1);
-    s->op = current_op;
-    strcpy(s->src2, current_src2);
-    s->is_src1_num = current_is_src1_num;
-    s->is_src2_num = current_is_src2_num;
+void add_stmt() {
+    struct stmt *s = &stmts[stmt_count];
+    strcpy(s->dest, tmp_dest);
+    strcpy(s->src1, tmp_src1);
+    strcpy(s->src2, tmp_src2);
+    s->op = tmp_op;
     
-    if (s->op == 0) {
-        sprintf(s->original, "%s=%s;", s->dest, s->src1);
-    } else {
-        sprintf(s->original, "%s=%s%c%s;", s->dest, s->src1, s->op, s->src2);
-    }
-    
+    if (s->op == 0)
+        sprintf(s->text, "%s=%s;", s->dest, s->src1);
+    else
+        sprintf(s->text, "%s=%s%c%s;", s->dest, s->src1, s->op, s->src2);
     stmt_count++;
 }
 
-void add_live_var(char *var) {
-    strcpy(live_vars[live_count], var);
-    live_count++;
-}
-
-int is_live(char *var) {
-    for (int i = 0; i < live_count; i++) {
-        if (strcmp(live_vars[i], var) == 0) {
-            return 1;
-        }
-    }
-    return 0;
-}
-
-void add_to_live(char *var) {
-    if (!is_live(var)) {
-        strcpy(live_vars[live_count], var);
+void add_live(char *v) {
+    if (!is_live(v)) {
+        strcpy(live[live_count], v);
         live_count++;
     }
 }
 
-void remove_from_live(char *var) {
+int is_live(char *v) {
+    for (int i = 0; i < live_count; i++)
+        if (strcmp(live[i], v) == 0) return 1;
+    return 0;
+}
+
+void remove_live(char *v) {
     for (int i = 0; i < live_count; i++) {
-        if (strcmp(live_vars[i], var) == 0) {
-            for (int j = i; j < live_count - 1; j++) {
-                strcpy(live_vars[j], live_vars[j + 1]);
-            }
+        if (strcmp(live[i], v) == 0) {
+            for (int j = i; j < live_count - 1; j++)
+                strcpy(live[j], live[j + 1]);
             live_count--;
             return;
         }
     }
 }
 
-void perform_dce() {
-    char output[MAX_STATEMENTS][256];
-    int output_count = 0;
+int is_num(char *s) {
+    if (s[0] == '\0') return 0;
+    int i = (s[0] == '-') ? 1 : 0;
+    for (; s[i]; i++)
+        if (s[i] < '0' || s[i] > '9') return 0;
+    return 1;
+}
+
+void do_dce() {
+    char output[MAX][128];
+    int out_count = 0;
     
     for (int i = stmt_count - 1; i >= 0; i--) {
-        Statement *s = &statements[i];
+        struct stmt *s = &stmts[i];
         
         if (is_live(s->dest)) {
-            strcpy(output[output_count], s->original);
-            output_count++;
-            
-            remove_from_live(s->dest);
-            
-            if (!s->is_src1_num) {
-                add_to_live(s->src1);
-            }
-            if (s->op != 0 && !s->is_src2_num) {
-                add_to_live(s->src2);
-            }
+            strcpy(output[out_count++], s->text);
+            remove_live(s->dest);
+            if (!is_num(s->src1)) add_live(s->src1);
+            if (s->op != 0 && !is_num(s->src2)) add_live(s->src2);
         }
     }
     
-    for (int i = output_count - 1; i >= 0; i--) {
+    for (int i = out_count - 1; i >= 0; i--)
         printf("%s\n", output[i]);
-    }
 }
 
-void yyerror(const char *s) {
-    fprintf(stderr, "Hata: %s\n", s);
-}
+void yyerror(const char *s) { fprintf(stderr, "Error: %s\n", s); }
 
-int main() {
-    return yyparse();
-}
+int main() { return yyparse(); }
