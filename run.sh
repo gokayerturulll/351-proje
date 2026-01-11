@@ -12,3 +12,11 @@ echo "Running Test 1"
 echo ""
 echo "Running Test 2"
 ./dce < tests/test2.il
+
+echo ""
+echo "Running Test 3"
+./dce < tests/test3.il
+
+echo ""
+echo "Running Test 4"
+./dce < tests/test4.il
